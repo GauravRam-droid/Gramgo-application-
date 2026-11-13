@@ -1,0 +1,2029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GRAMGO – Smart Rural Student Transportation Management System</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet.js CSS & JS (OpenStreetMap Integration) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            alabaster: '#F9FAF8',
+            forest: '#1B4332',
+            sage: '#2D6A4F',
+            mint: '#E9F2EE',
+            borderline: '#DCE3DE',
+            amberwarm: '#D97706',
+            amberlight: '#FEF3C7',
+            terracotta: '#C2410C',
+            ink: '#18241E',
+            muted: '#52635B'
+          },
+          fontFamily: {
+            display: ['"Plus Jakarta Sans"', 'sans-serif'],
+            sans: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      background-color: #F9FAF8;
+      color: #18241E;
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4, .font-heading {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    /* Subtle tactile paper-grid texture for hero background */
+    .rural-grid-bg {
+      background-image: radial-gradient(#CBD5CE 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    /* Leaflet container fix */
+    .leaflet-container {
+      font-family: 'Inter', sans-serif !important;
+      z-index: 10;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F9FAF8;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #C4D1C9;
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #2D6A4F;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.85); opacity: 0.9; }
+      70% { transform: scale(1.6); opacity: 0; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+    .sos-pulse::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 9999px;
+      border: 2px solid #DC2626;
+      animation: pulse-ring 1.6s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-mint selection:text-forest">
+
+  <!-- ==================== GLOBAL TOAST NOTIFICATION BANNER ==================== -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- ==================== TOP NAVIGATION BAR ==================== -->
+  <header class="sticky top-0 z-40 bg-alabaster/95 backdrop-blur border-b border-borderline">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16 sm:h-18">
+        <!-- Brand Logo -->
+        <button onclick="navigateTo('landing')" class="flex items-center gap-3 text-left group focus:outline-none">
+          <!-- Custom GRAMGO SVG Logo: Rural Leaf/Road Curve + Bus Silhouette + Connectivity Nodes -->
+          <div class="w-10 h-10 rounded-xl bg-forest flex items-center justify-center shadow-sm group-hover:bg-sage transition-colors">
+            <svg width="26" height="26" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <!-- Rural curved road & leaf arc -->
+              <path d="M4 25C8 19 14 17 28 17" stroke="#86EFAC" stroke-width="2.2" stroke-linecap="round"/>
+              <path d="M5 13C9 7 18 5 26 9C23 13 15 15 5 13Z" fill="#2D6A4F" stroke="#A7F3D0" stroke-width="1.4"/>
+              <!-- Clean Bus Silhouette -->
+              <rect x="8" y="11" width="16" height="10" rx="2.5" fill="#F9FAF8"/>
+              <rect x="10" y="13" width="5" height="3.5" rx="0.8" fill="#1B4332"/>
+              <rect x="17" y="13" width="5" height="3.5" rx="0.8" fill="#1B4332"/>
+              <!-- Wheels -->
+              <circle cx="11.5" cy="21.5" r="2" fill="#D97706" stroke="#F9FAF8" stroke-width="1"/>
+              <circle cx="20.5" cy="21.5" r="2" fill="#D97706" stroke="#F9FAF8" stroke-width="1"/>
+              <!-- Connectivity Nodes -->
+              <circle cx="27" cy="8" r="2" fill="#FBBF24"/>
+              <circle cx="5" cy="25" r="2" fill="#86EFAC"/>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="font-heading font-extrabold text-xl tracking-tight text-forest">GRAMGO</span>
+              <span class="hidden sm:inline-block text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-mint text-sage border border-borderline">Rural Mobility</span>
+            </div>
+            <p class="text-[11px] text-muted leading-none hidden sm:block">Connecting Villages. Empowering Students</p>
+          </div>
+        </button>
+
+        <!-- Center Navigation Links (Desktop) -->
+        <nav class="hidden md:flex items-center gap-1 bg-white/80 p-1 rounded-xl border border-borderline">
+          <button onclick="navigateTo('landing')" id="nav-landing" class="nav-pill px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors bg-mint text-forest">
+            Home & Route Finder
+          </button>
+          <button onclick="navigateTo('student')" id="nav-student" class="nav-pill px-3.5 py-1.5 rounded-lg text-sm font-medium text-muted hover:text-forest transition-colors">
+            Student Portal
+          </button>
+          <button onclick="navigateTo('driver')" id="nav-driver" class="nav-pill px-3.5 py-1.5 rounded-lg text-sm font-medium text-muted hover:text-forest transition-colors">
+            Driver Console
+          </button>
+          <button onclick="navigateTo('admin')" id="nav-admin" class="nav-pill px-3.5 py-1.5 rounded-lg text-sm font-medium text-muted hover:text-forest transition-colors flex items-center gap-1.5">
+            Admin Control
+            <span id="admin-alert-badge" class="hidden px-1.5 py-0.2 text-[10px] font-bold bg-amberwarm text-white rounded-full">0</span>
+          </button>
+        </nav>
+
+        <!-- Right Auth / Session Controls -->
+        <div class="flex items-center gap-2.5">
+          <!-- Active User Pill (Shown when logged in) -->
+          <div id="active-user-pill" class="hidden items-center gap-2 bg-mint border border-borderline px-3 py-1.5 rounded-xl">
+            <span class="w-2 h-2 rounded-full bg-sage"></span>
+            <span id="active-user-name" class="text-xs font-semibold text-forest">Ananya Sharma</span>
+            <span id="active-user-role" class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white text-sage border border-borderline">Student</span>
+          </div>
+
+          <button onclick="openAuthModal('login')" id="btn-open-login" class="px-3.5 py-2 rounded-xl text-sm font-semibold text-forest bg-white border border-borderline hover:bg-mint/60 transition-colors">
+            Role Login
+          </button>
+          <button onclick="openAuthModal('register')" id="btn-open-register" class="px-3.5 py-2 rounded-xl text-sm font-semibold text-white bg-forest hover:bg-sage transition-colors shadow-sm">
+            Student Pass
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile Quick Role Switcher Strip -->
+      <div class="flex md:hidden items-center gap-1.5 pb-2.5 overflow-x-auto no-scrollbar">
+        <button onclick="navigateTo('landing')" class="mobile-nav-pill shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-mint text-forest border border-borderline">Home</button>
+        <button onclick="navigateTo('student')" class="mobile-nav-pill shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-muted border border-borderline">Student Dashboard</button>
+        <button onclick="navigateTo('driver')" class="mobile-nav-pill shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-muted border border-borderline">Driver Console</button>
+        <button onclick="navigateTo('admin')" class="mobile-nav-pill shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-muted border border-borderline">Admin Analytics</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT CONTAINER ==================== -->
+  <main class="flex-1">
+
+    <!-- ================================================================
+         VIEW 1: LANDING PAGE & LIVE ROUTE SEARCH
+    ================================================================= -->
+    <section id="view-landing" class="view-section">
+      <!-- Hero Section -->
+      <div class="rural-grid-bg border-b border-borderline">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-14 lg:pt-16 lg:pb-20">
+          <div class="max-w-3xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-mint border border-borderline text-forest text-xs font-semibold mb-5">
+              <span class="w-2 h-2 rounded-full bg-sage"></span>
+              <span>GRAMGO – Smart Rural Student Transportation Management System</span>
+            </div>
+
+            <h1 class="font-heading text-3xl sm:text-5xl font-extrabold text-ink tracking-tight leading-[1.15]">
+              Better Transportation.<br/>
+              <span class="text-forest">Better Accessibility.</span><br/>
+              Better Education.
+            </h1>
+
+            <p class="mt-4 text-base sm:text-lg text-muted max-w-2xl leading-relaxed">
+              Connecting villages to schools and colleges with dependable state bus tracking, verified local shared vans, and instant student safety alerts.
+            </p>
+
+            <!-- Quick Evaluator Role Demo Strip -->
+            <div class="mt-6 flex flex-wrap items-center gap-2 text-xs">
+              <span class="text-muted font-medium">Quick Evaluator Demo:</span>
+              <button onclick="quickDemoLogin('student')" class="px-3 py-1.5 rounded-lg bg-white border border-borderline text-forest font-semibold hover:bg-mint transition-colors">
+                Enter as Student →
+              </button>
+              <button onclick="quickDemoLogin('driver')" class="px-3 py-1.5 rounded-lg bg-white border border-borderline text-forest font-semibold hover:bg-mint transition-colors">
+                Enter as Bus Driver →
+              </button>
+              <button onclick="quickDemoLogin('admin')" class="px-3 py-1.5 rounded-lg bg-white border border-borderline text-forest font-semibold hover:bg-mint transition-colors">
+                Enter as Transport Admin →
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive Village-to-Campus Route Finder Card -->
+          <div class="mt-9 bg-white rounded-2xl border border-borderline p-5 sm:p-7 shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 mb-5 border-b border-borderline">
+              <div>
+                <h2 class="font-heading text-lg font-bold text-ink">Village-to-Campus Route Finder</h2>
+                <p class="text-xs text-muted">Check live government bus seat availability & verified shared village vans</p>
+              </div>
+              <span class="inline-flex items-center gap-1.5 text-xs font-medium text-sage bg-mint px-2.5 py-1 rounded-lg self-start">
+                <span class="w-1.5 h-1.5 rounded-full bg-sage animate-pulse"></span>
+                Live GPS Feed Active
+              </span>
+            </div>
+
+            <form id="landing-search-form" onsubmit="handleLandingSearch(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+              <!-- From Village -->
+              <div class="lg:col-span-3">
+                <label class="block text-xs font-semibold text-ink mb-1.5">Origin Village</label>
+                <select id="search-origin" class="w-full rounded-xl border border-borderline bg-alabaster px-3.5 py-2.5 text-sm font-medium text-ink focus:outline-none focus:border-forest">
+                  <option value="All">All Connected Villages</option>
+                  <option value="Rampur" selected>Rampur Village</option>
+                  <option value="Khedi">Khedi Khurd</option>
+                  <option value="Sultanpur">Sultanpur</option>
+                  <option value="Nandgaon">Nandgaon</option>
+                </select>
+              </div>
+
+              <!-- To Institution -->
+              <div class="lg:col-span-4">
+                <label class="block text-xs font-semibold text-ink mb-1.5">Destination School / College</label>
+                <select id="search-dest" class="w-full rounded-xl border border-borderline bg-alabaster px-3.5 py-2.5 text-sm font-medium text-ink focus:outline-none focus:border-forest">
+                  <option value="All">All Educational Campuses</option>
+                  <option value="Govt. Polytechnic College" selected>Govt. Polytechnic College</option>
+                  <option value="District Degree College">District Degree College</option>
+                  <option value="St. Xavier's High School">St. Xavier's High School</option>
+                </select>
+              </div>
+
+              <!-- Travel Date -->
+              <div class="lg:col-span-2">
+                <label class="block text-xs font-semibold text-ink mb-1.5">Travel Date</label>
+                <input type="date" id="search-date" class="w-full rounded-xl border border-borderline bg-alabaster px-3.5 py-2.5 text-sm font-medium text-ink focus:outline-none focus:border-forest" />
+              </div>
+
+              <!-- Shift -->
+              <div class="lg:col-span-2">
+                <label class="block text-xs font-semibold text-ink mb-1.5">Campus Shift</label>
+                <select id="search-shift" class="w-full rounded-xl border border-borderline bg-alabaster px-3.5 py-2.5 text-sm font-medium text-ink focus:outline-none focus:border-forest">
+                  <option value="Morning">Morning (7:30 AM)</option>
+                  <option value="Afternoon">Afternoon (1:30 PM)</option>
+                  <option value="Evening">Return (4:45 PM)</option>
+                </select>
+              </div>
+
+              <!-- Search CTA -->
+              <div class="lg:col-span-1">
+                <button type="submit" class="w-full rounded-xl bg-forest hover:bg-sage text-white font-semibold text-sm py-2.5 px-4 transition-colors flex items-center justify-center gap-1.5">
+                  <span>Find</span>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Route Search Results Section -->
+      <div id="landing-results-section" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-sage">Real-Time Schedule & Pooling</span>
+            <h2 class="font-heading text-2xl font-bold text-ink mt-1">Available Buses & Verified Shared Rides</h2>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <button onclick="resetLandingFilter()" class="px-3 py-1.5 rounded-lg bg-white border border-borderline text-muted hover:text-forest font-medium">
+              Show All Routes
+            </button>
+            <button onclick="navigateTo('student')" class="px-3 py-1.5 rounded-lg bg-mint text-forest font-semibold hover:bg-forest hover:text-white transition-colors">
+              Open Live GPS Map →
+            </button>
+          </div>
+        </div>
+
+        <!-- Results Grid (Populated dynamically by JS) -->
+        <div id="landing-results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+      </div>
+
+      <!-- Grounded How GRAMGO Works / Core Pillars -->
+      <div class="bg-white border-t border-b border-borderline py-14">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="max-w-2xl mb-10">
+            <span class="text-xs font-bold uppercase tracking-wider text-sage">Built for Rural Reality</span>
+            <h2 class="font-heading text-2xl sm:text-3xl font-bold text-ink mt-1">No more missed morning lectures or uncertain waits at village crossroads.</h2>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Pillar 1 -->
+            <div class="p-6 rounded-2xl bg-alabaster border border-borderline">
+              <div class="w-10 h-10 rounded-xl bg-mint text-forest flex items-center justify-center mb-4 font-heading font-bold">
+                01
+              </div>
+              <h3 class="font-heading font-bold text-base text-ink mb-2">Live GPS Bus Telemetry</h3>
+              <p class="text-sm text-muted leading-relaxed">
+                Track state transport buses moving between village stops on OpenStreetMap with accurate arrival times even on low-bandwidth connections.
+              </p>
+            </div>
+
+            <!-- Pillar 2 -->
+            <div class="p-6 rounded-2xl bg-alabaster border border-borderline">
+              <div class="w-10 h-10 rounded-xl bg-mint text-forest flex items-center justify-center mb-4 font-heading font-bold">
+                02
+              </div>
+              <h3 class="font-heading font-bold text-base text-ink mb-2">Verified Shared Pools</h3>
+              <p class="text-sm text-muted leading-relaxed">
+                When government buses hit full capacity, students can book seats in institution-verified local vans and autos with fixed student fares.
+              </p>
+            </div>
+
+            <!-- Pillar 3 -->
+            <div class="p-6 rounded-2xl bg-alabaster border border-borderline">
+              <div class="w-10 h-10 rounded-xl bg-mint text-forest flex items-center justify-center mb-4 font-heading font-bold">
+                03
+              </div>
+              <h3 class="font-heading font-bold text-base text-ink mb-2">One-Tap Campus SOS</h3>
+              <p class="text-sm text-muted leading-relaxed">
+                Emergency distress button broadcasts live GPS coordinates, vehicle number, and student ID directly to campus security and transport control.
+              </p>
+            </div>
+
+            <!-- Pillar 4 -->
+            <div class="p-6 rounded-2xl bg-alabaster border border-borderline">
+              <div class="w-10 h-10 rounded-xl bg-mint text-forest flex items-center justify-center mb-4 font-heading font-bold">
+                04
+              </div>
+              <h3 class="font-heading font-bold text-base text-ink mb-2">Demand-Driven Dispatch</h3>
+              <p class="text-sm text-muted leading-relaxed">
+                Administrators monitor village-level morning exam surges and deploy relief shuttles before students are left stranded.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         VIEW 2: STUDENT DASHBOARD
+    ================================================================= -->
+    <section id="view-student" class="view-section hidden">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Top Student Welcome & Emergency SOS Strip -->
+        <div class="bg-white rounded-2xl border border-borderline p-5 sm:p-6 mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div class="flex items-start sm:items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-forest text-white font-heading font-bold text-lg flex items-center justify-center shrink-0">
+              AS
+            </div>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h1 class="font-heading text-xl sm:text-2xl font-bold text-ink" id="student-welcome-name">Welcome, Ananya Sharma</h1>
+                <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-mint text-forest border border-borderline">Pass #GG-2026-884</span>
+              </div>
+              <p class="text-xs sm:text-sm text-muted mt-1" id="student-meta-info">
+                Route: Rampur Village → Govt. Polytechnic College • B.Tech Sem IV • Concession Active
+              </p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- Digital Bus Pass Trigger -->
+            <button onclick="openPassModal()" class="px-4 py-2.5 rounded-xl bg-mint hover:bg-forest hover:text-white text-forest font-semibold text-xs sm:text-sm transition-colors border border-borderline flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+              <span>View QR Pass</span>
+            </button>
+
+            <!-- Emergency SOS Button -->
+            <button onclick="triggerEmergencySOS()" class="relative sos-pulse px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs sm:text-sm transition-colors shadow-sm flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              <span>Emergency SOS</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Main 2-Column Student Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+          <!-- Left 8 Columns: Live GPS Map + Available Transport Booking -->
+          <div class="lg:col-span-8 flex flex-col gap-6">
+
+            <!-- Live GPS Tracking Map Card -->
+            <div class="bg-white rounded-2xl border border-borderline overflow-hidden">
+              <div class="p-4 sm:p-5 border-b border-borderline flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-sage animate-ping"></span>
+                    <h2 class="font-heading font-bold text-base sm:text-lg text-ink">Live Village-to-Campus GPS Map</h2>
+                  </div>
+                  <p class="text-xs text-muted mt-0.5">Real-time OpenStreetMap telemetry • Click any bus marker for live occupancy & ETA</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button onclick="centerStudentMap()" class="px-3 py-1.5 rounded-lg bg-alabaster border border-borderline text-xs font-semibold text-forest hover:bg-mint transition-colors">
+                    Re-center Route
+                  </button>
+                </div>
+              </div>
+
+              <!-- Leaflet Map Canvas -->
+              <div id="student-map" class="w-full h-80 sm:h-96 bg-mint/40"></div>
+
+              <!-- Live Telemetry Footer Strip -->
+              <div id="map-telemetry-strip" class="px-4 py-3 bg-alabaster border-t border-borderline flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-forest">Tracking:</span>
+                  <span id="telemetry-bus-label" class="text-ink font-medium">Bus MH-14-G-402 (Rampur Express)</span>
+                </div>
+                <div class="flex items-center gap-4">
+                  <span class="text-muted">Next Stop: <strong class="text-ink" id="telemetry-next-stop">Khedi Crossroad</strong></span>
+                  <span class="px-2 py-0.5 rounded bg-mint text-forest font-bold" id="telemetry-eta">ETA: 6 mins</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Book Bus or Verified Shared Ride -->
+            <div class="bg-white rounded-2xl border border-borderline p-5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-borderline">
+                <div>
+                  <h2 class="font-heading font-bold text-lg text-ink">Book Today's Commute</h2>
+                  <p class="text-xs text-muted">Instant seat reservation across Government Buses & Verified Local Shared Vans</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <select id="student-filter-village" onchange="renderStudentTransportList()" class="rounded-xl border border-borderline bg-alabaster px-3 py-1.5 text-xs font-semibold text-ink">
+                    <option value="All">All Villages</option>
+                    <option value="Rampur">Rampur</option>
+                    <option value="Khedi">Khedi</option>
+                    <option value="Sultanpur">Sultanpur</option>
+                    <option value="Nandgaon">Nandgaon</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="student-transport-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+          </div>
+
+          <!-- Right 4 Columns: My Booked Passes, Alerts Feed, Complaint Form -->
+          <div class="lg:col-span-4 flex flex-col gap-6">
+
+            <!-- My Active Bookings -->
+            <div class="bg-white rounded-2xl border border-borderline p-5">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-heading font-bold text-base text-ink">My Booked Seats</h3>
+                <span id="my-bookings-count" class="text-xs font-bold px-2 py-0.5 rounded-full bg-mint text-forest">1 Active</span>
+              </div>
+              <div id="student-bookings-list" class="flex flex-col gap-3"></div>
+            </div>
+
+            <!-- Live Delay & Route Notifications -->
+            <div class="bg-white rounded-2xl border border-borderline p-5">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-heading font-bold text-base text-ink">Route Advisories & Alerts</h3>
+                <span class="w-2 h-2 rounded-full bg-amberwarm"></span>
+              </div>
+              <div id="student-notifications-list" class="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1"></div>
+            </div>
+
+            <!-- Complaint / Issue Registration -->
+            <div class="bg-white rounded-2xl border border-borderline p-5">
+              <h3 class="font-heading font-bold text-base text-ink mb-1">Report Transport Issue</h3>
+              <p class="text-xs text-muted mb-4">Logs directly to the District Transport Admin desk.</p>
+
+              <form id="student-complaint-form" onsubmit="submitStudentComplaint(event)" class="flex flex-col gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-ink mb-1">Issue Category</label>
+                  <select id="complaint-category" class="w-full rounded-xl border border-borderline bg-alabaster px-3 py-2 text-xs font-medium text-ink">
+                    <option value="Bus Overcrowding">Bus Overcrowding / No Seats</option>
+                    <option value="Schedule Delay">Unannounced Delay / Skipped Stop</option>
+                    <option value="Shared Ride Overcharging">Shared Ride Fare Dispute</option>
+                    <option value="Safety / Conduct">Driver Conduct / Safety</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-ink mb-1">Vehicle / Route</label>
+                  <input type="text" id="complaint-route" placeholder="e.g., Bus MH-14-G-402 (Rampur)" required class="w-full rounded-xl border border-borderline bg-alabaster px-3 py-2 text-xs text-ink" />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-ink mb-1">Details</label>
+                  <textarea id="complaint-desc" rows="2" placeholder="Describe the issue briefly..." required class="w-full rounded-xl border border-borderline bg-alabaster px-3 py-2 text-xs text-ink"></textarea>
+                </div>
+                <button type="submit" class="w-full py-2.5 rounded-xl bg-forest hover:bg-sage text-white font-semibold text-xs transition-colors">
+                  Submit Report to Admin
+                </button>
+              </form>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         VIEW 3: DRIVER CONSOLE
+    ================================================================= -->
+    <section id="view-driver" class="view-section hidden">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Driver Header Bar -->
+        <div class="bg-white rounded-2xl border border-borderline p-5 sm:p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-md bg-mint text-forest text-xs font-bold">DRIVER CONSOLE</span>
+              <span id="driver-trip-status-badge" class="px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-bold">ON DUTY • TRIP ACTIVE</span>
+            </div>
+            <h1 class="font-heading text-xl sm:text-2xl font-bold text-ink mt-2" id="driver-name-heading">Rameshwar Patil • Bus MH-14-G-402</h1>
+            <p class="text-xs sm:text-sm text-muted">Assigned Corridor: Rampur → Khedi Crossroad → Govt. Polytechnic College</p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <select id="driver-vehicle-selector" onchange="switchDriverVehicle(this.value)" class="rounded-xl border border-borderline bg-alabaster px-3 py-2 text-xs font-semibold text-ink">
+              <option value="BUS-101">Bus MH-14-G-402 (Govt. Bus)</option>
+              <option value="BUS-102">Bus MH-14-G-518 (Sultanpur Loop)</option>
+              <option value="VAN-201">Van MH-14-TR-89 (Verified Pool)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Left 7 Columns: Trip Controls & Live Seat Counter -->
+          <div class="lg:col-span-7 flex flex-col gap-6">
+
+            <!-- Trip & GPS Telemetry Control Card -->
+            <div class="bg-white rounded-2xl border border-borderline p-6">
+              <h2 class="font-heading font-bold text-lg text-ink mb-4">Trip & Live GPS Broadcast</h2>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <!-- Trip Toggle -->
+                <div class="p-4 rounded-xl bg-alabaster border border-borderline flex items-center justify-between">
+                  <div>
+                    <p class="text-xs font-semibold text-muted">Trip Status</p>
+                    <p id="driver-trip-label" class="font-heading font-bold text-base text-forest mt-0.5">Active En-Route</p>
+                  </div>
+                  <button onclick="toggleDriverTrip()" id="btn-toggle-trip" class="px-3.5 py-2 rounded-xl bg-forest text-white text-xs font-semibold hover:bg-sage transition-colors">
+                    End Trip
+                  </button>
+                </div>
+
+                <!-- GPS Broadcast Toggle -->
+                <div class="p-4 rounded-xl bg-alabaster border border-borderline flex items-center justify-between">
+                  <div>
+                    <p class="text-xs font-semibold text-muted">GPS Location Sharing</p>
+                    <p id="driver-gps-label" class="font-heading font-bold text-base text-sage mt-0.5">Broadcasting Live</p>
+                  </div>
+                  <button onclick="toggleDriverGPS()" id="btn-toggle-gps" class="px-3.5 py-2 rounded-xl bg-mint text-forest border border-borderline text-xs font-semibold hover:bg-forest hover:text-white transition-colors">
+                    Pause GPS
+                  </button>
+                </div>
+              </div>
+
+              <!-- Live Seat Occupancy Sync Tool -->
+              <div class="p-5 rounded-2xl bg-mint/50 border border-borderline">
+                <div class="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 class="font-heading font-bold text-base text-ink">Live Bus Occupancy Sync</h3>
+                    <p class="text-xs text-muted">Updates available seats in real time on the Student Portal</p>
+                  </div>
+                  <span id="driver-seat-fraction" class="font-heading font-extrabold text-xl text-forest">34 / 45</span>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full h-3 bg-white rounded-full overflow-hidden border border-borderline mb-4">
+                  <div id="driver-seat-bar" class="h-full bg-forest transition-all duration-300" style="width: 75%"></div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div class="flex items-center gap-2">
+                    <button onclick="adjustDriverOccupancy(-1)" class="px-4 py-2 rounded-xl bg-white border border-borderline text-ink font-bold text-sm hover:bg-alabaster">
+                      -1 Alighted
+                    </button>
+                    <button onclick="adjustDriverOccupancy(1)" class="px-4 py-2 rounded-xl bg-forest text-white font-bold text-sm hover:bg-sage">
+                      +1 Boarded
+                    </button>
+                  </div>
+                  <span id="driver-seats-remaining-text" class="text-xs font-bold text-sage">11 seats open for students</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Broadcast Delay / Breakdown Alert -->
+            <div class="bg-white rounded-2xl border border-borderline p-6">
+              <h2 class="font-heading font-bold text-lg text-ink mb-1">Broadcast Delay or Route Advisory</h2>
+              <p class="text-xs text-muted mb-4">Immediately notifies waiting students at village stops and alerts Transport Admin.</p>
+
+              <form onsubmit="broadcastDriverDelay(event)" class="flex flex-col sm:flex-row gap-3">
+                <select id="driver-delay-reason" class="rounded-xl border border-borderline bg-alabaster px-3.5 py-2.5 text-xs font-semibold text-ink flex-1">
+                  <option value="Delayed by 10 mins due to railway gate crossing">Railway Crossing Delay (+10 mins)</option>
+                  <option value="Delayed by 15 mins due to heavy rain on village road">Weather / Road Slowdown (+15 mins)</option>
+                  <option value="Bus near full capacity - backup van requested">Near Full Capacity (Request Backup)</option>
+                  <option value="Minor mechanical check - relief bus dispatched">Mechanical Check (15 mins hold)</option>
+                </select>
+                <button type="submit" class="px-5 py-2.5 rounded-xl bg-amberwarm hover:bg-terracotta text-white font-semibold text-xs transition-colors shrink-0">
+                  Send Live Alert
+                </button>
+              </form>
+            </div>
+
+          </div>
+
+          <!-- Right 5 Columns: Village Stop Manifest -->
+          <div class="lg:col-span-5">
+            <div class="bg-white rounded-2xl border border-borderline p-6">
+              <h2 class="font-heading font-bold text-lg text-ink mb-1">Village Stop Manifest</h2>
+              <p class="text-xs text-muted mb-5">Tap a stop as you depart to update student ETAs</p>
+
+              <div id="driver-stops-checklist" class="flex flex-col gap-3"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         VIEW 4: ADMIN DASHBOARD
+    ================================================================= -->
+    <section id="view-admin" class="view-section hidden">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Admin Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-sage">District Rural Mobility Command</span>
+            <h1 class="font-heading text-2xl sm:text-3xl font-bold text-ink mt-0.5">Transport Administration & Demand Analytics</h1>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="deployReliefShuttle()" id="btn-deploy-shuttle" class="px-4 py-2.5 rounded-xl bg-forest hover:bg-sage text-white font-semibold text-xs sm:text-sm transition-colors shadow-sm flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              <span>Deploy Extra Relief Shuttle</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI Metrics Row -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white p-5 rounded-2xl border border-borderline">
+            <p class="text-xs font-semibold text-muted">Active Fleet & Pools</p>
+            <p id="admin-kpi-fleet" class="font-heading text-2xl sm:text-3xl font-extrabold text-forest mt-1">5 Vehicles</p>
+            <p class="text-[11px] text-sage mt-1">3 Govt Buses • 2 Verified Vans</p>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-borderline">
+            <p class="text-xs font-semibold text-muted">Students Commuting Today</p>
+            <p id="admin-kpi-students" class="font-heading text-2xl sm:text-3xl font-extrabold text-ink mt-1">168</p>
+            <p class="text-[11px] text-sage mt-1">+14% vs last week exam prep</p>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-borderline">
+            <p class="text-xs font-semibold text-muted">Avg. Seat Utilization</p>
+            <p id="admin-kpi-utilization" class="font-heading text-2xl sm:text-3xl font-extrabold text-ink mt-1">82%</p>
+            <p class="text-[11px] text-amberwarm font-medium mt-1">Peak surge on Rampur corridor</p>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-borderline">
+            <p class="text-xs font-semibold text-muted">Open SOS & Complaints</p>
+            <p id="admin-kpi-alerts" class="font-heading text-2xl sm:text-3xl font-extrabold text-terracotta mt-1">1</p>
+            <p class="text-[11px] text-muted mt-1">Real-time response active</p>
+          </div>
+        </div>
+
+        <!-- Smart Route Optimization & Demand Prediction + SOS/Complaints -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+
+          <!-- Smart Demand Prediction Module (7 Cols) -->
+          <div class="lg:col-span-7 bg-white rounded-2xl border border-borderline p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
+              <div>
+                <span class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-mint text-forest">Smart Route Optimization</span>
+                <h2 class="font-heading font-bold text-lg text-ink mt-1.5">Village Corridor Demand Prediction (Morning Shift)</h2>
+              </div>
+              <span class="text-xs text-muted">Forecast model: Exam Week + Attendance</span>
+            </div>
+
+            <!-- Visual Bar Chart of Village Demand vs Seat Capacity -->
+            <div class="flex flex-col gap-4">
+              <div>
+                <div class="flex justify-between text-xs font-semibold mb-1">
+                  <span>Rampur → Govt. Polytechnic (7:45 AM Peak)</span>
+                  <span class="text-terracotta font-bold">54 students predicted / 45 bus seats (120% Load)</span>
+                </div>
+                <div class="w-full h-3 bg-alabaster rounded-full overflow-hidden border border-borderline">
+                  <div class="h-full bg-amberwarm rounded-full" style="width: 96%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-semibold mb-1">
+                  <span>Khedi Khurd → District Degree College</span>
+                  <span class="text-forest font-bold">39 students predicted / 45 bus seats (86% Load)</span>
+                </div>
+                <div class="w-full h-3 bg-alabaster rounded-full overflow-hidden border border-borderline">
+                  <div class="h-full bg-forest rounded-full" style="width: 86%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-semibold mb-1">
+                  <span>Sultanpur → St. Xavier's High School</span>
+                  <span class="text-sage font-bold">28 students predicted / 40 bus seats (70% Load)</span>
+                </div>
+                <div class="w-full h-3 bg-alabaster rounded-full overflow-hidden border border-borderline">
+                  <div class="h-full bg-sage rounded-full" style="width: 70%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-semibold mb-1">
+                  <span>Nandgaon → Govt. Polytechnic</span>
+                  <span class="text-sage font-bold">22 students predicted / 30 seats (73% Load)</span>
+                </div>
+                <div class="w-full h-3 bg-alabaster rounded-full overflow-hidden border border-borderline">
+                  <div class="h-full bg-sage rounded-full" style="width: 73%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actionable Optimization Recommendation Box -->
+            <div id="optimization-recommendation-box" class="mt-6 p-4 rounded-xl bg-amberlight/60 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="text-xs">
+                <p class="font-bold text-ink">Optimization Recommendation: Rampur Overflow</p>
+                <p class="text-muted mt-0.5">+9 students exceed single bus capacity at 7:45 AM. Deploying 1 Relief Shuttle resolves overcrowding.</p>
+              </div>
+              <button onclick="deployReliefShuttle()" class="px-3.5 py-2 rounded-xl bg-forest text-white font-semibold text-xs hover:bg-sage transition-colors shrink-0">
+                Approve & Dispatch
+              </button>
+            </div>
+          </div>
+
+          <!-- Live SOS & Student Complaints Log (5 Cols) -->
+          <div class="lg:col-span-5 bg-white rounded-2xl border border-borderline p-6 flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="font-heading font-bold text-lg text-ink">SOS Alerts & Student Grievances</h2>
+              <span id="admin-log-badge" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700">1 Open</span>
+            </div>
+
+            <div id="admin-complaints-list" class="flex flex-col gap-3 flex-1 overflow-y-auto max-h-80 pr-1"></div>
+          </div>
+        </div>
+
+        <!-- Live Fleet & Driver Management Table -->
+        <div class="bg-white rounded-2xl border border-borderline overflow-hidden">
+          <div class="p-5 border-b border-borderline flex items-center justify-between">
+            <div>
+              <h2 class="font-heading font-bold text-lg text-ink">Live Fleet & Verified Pool Roster</h2>
+              <p class="text-xs text-muted">Synced in real time with Driver Console & Student Bookings</p>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-alabaster border-b border-borderline text-[11px] font-bold uppercase tracking-wider text-muted">
+                  <th class="py-3 px-4">Vehicle & Type</th>
+                  <th class="py-3 px-4">Route Corridor</th>
+                  <th class="py-3 px-4">Driver / Operator</th>
+                  <th class="py-3 px-4">Occupancy</th>
+                  <th class="py-3 px-4">Status</th>
+                </tr>
+              </thead>
+              <tbody id="admin-fleet-table-body" class="divide-y divide-borderline text-xs"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="bg-white border-t border-borderline mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted">
+      <div class="flex items-center gap-2.5">
+        <span class="font-heading font-extrabold text-sm text-forest">GRAMGO</span>
+        <span>•</span>
+        <span>Smart Rural Student Transportation Management System</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-4">
+        <button onclick="navigateTo('landing')" class="hover:text-forest">Route Finder</button>
+        <button onclick="navigateTo('student')" class="hover:text-forest">Student Portal</button>
+        <button onclick="navigateTo('driver')" class="hover:text-forest">Driver Console</button>
+        <button onclick="navigateTo('admin')" class="hover:text-forest">Admin Control</button>
+        <button onclick="resetDemoState()" class="text-terracotta font-semibold hover:underline">Reset Demo Data</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== AUTHENTICATION MODAL (LOGIN & REGISTER) ==================== -->
+  <div id="auth-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-ink/40 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl border border-borderline max-w-md w-full p-6 shadow-xl relative">
+      <button onclick="closeAuthModal()" class="absolute top-4 right-4 w-8 h-8 rounded-lg bg-alabaster hover:bg-mint text-muted hover:text-forest flex items-center justify-center">
+        ✕
+      </button>
+
+      <!-- Modal Header -->
+      <div class="flex items-center gap-2.5 mb-5">
+        <div class="w-9 h-9 rounded-xl bg-forest text-white flex items-center justify-center font-heading font-bold">G</div>
+        <div>
+          <h3 class="font-heading font-bold text-lg text-ink">GRAMGO Portal Access</h3>
+          <p class="text-xs text-muted">Connecting Villages. Empowering Students</p>
+        </div>
+      </div>
+
+      <!-- Mode Tabs -->
+      <div class="grid grid-cols-2 gap-1 bg-alabaster p-1 rounded-xl border border-borderline mb-5">
+        <button id="tab-login" onclick="switchAuthTab('login')" class="py-2 rounded-lg text-xs font-bold bg-white text-forest shadow-2xs">
+          Role Login
+        </button>
+        <button id="tab-register" onclick="switchAuthTab('register')" class="py-2 rounded-lg text-xs font-bold text-muted hover:text-forest">
+          Student Registration
+        </button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <form id="form-login" onsubmit="handleAuthLogin(event)" class="flex flex-col gap-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-ink mb-1">Select Portal Role</label>
+          <select id="login-role" onchange="prefillLoginDemo()" class="w-full rounded-xl border border-borderline bg-alabaster px-3.5 py-2.5 text-sm font-medium text-ink">
+            <option value="student">Student (Rural Commuter)</option>
+            <option value="driver">Driver / Verified Pool Operator</option>
+            <option value="admin">Transport Administrator</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-ink mb-1">ID / Mobile Number</label>
+          <input type="text" id="login-id" value="STU-2026-884" required class="w-full rounded-xl border border-borderline bg-alabaster px-3.5 py-2.5 text-sm text-ink" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-ink mb-1">Password</label>
+          <input type="password" id="login-pass" value="gramgo123" required class="w-full rounded-xl border border-borderline bg-alabaster px-3.5 py-2.5 text-sm text-ink" />
+        </div>
+
+        <button type="submit" class="w-full mt-1 py-3 rounded-xl bg-forest hover:bg-sage text-white font-semibold text-sm transition-colors">
+          Sign In to Dashboard
+        </button>
+      </form>
+
+      <!-- STUDENT REGISTRATION FORM -->
+      <form id="form-register" onsubmit="handleStudentRegister(event)" class="hidden flex-col gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-ink mb-1">Full Student Name</label>
+          <input type="text" id="reg-name" placeholder="e.g., Rohan Deshmukh" required class="w-full rounded-xl border border-borderline bg-alabaster px-3.5 py-2 text-sm text-ink" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">Home Village</label>
+            <select id="reg-village" class="w-full rounded-xl border border-borderline bg-alabaster px-3 py-2 text-sm text-ink">
+              <option value="Rampur">Rampur</option>
+              <option value="Khedi">Khedi Khurd</option>
+              <option value="Sultanpur">Sultanpur</option>
+              <option value="Nandgaon">Nandgaon</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">College / School</label>
+            <select id="reg-college" class="w-full rounded-xl border border-borderline bg-alabaster px-3 py-2 text-sm text-ink">
+              <option value="Govt. Polytechnic College">Govt. Polytechnic</option>
+              <option value="District Degree College">District Degree College</option>
+              <option value="St. Xavier's High School">St. Xavier's High</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-ink mb-1">Student ID / Roll Number</label>
+          <input type="text" id="reg-roll" placeholder="e.g., POLY-2026-119" required class="w-full rounded-xl border border-borderline bg-alabaster px-3.5 py-2 text-sm text-ink" />
+        </div>
+        <button type="submit" class="w-full mt-1 py-3 rounded-xl bg-forest hover:bg-sage text-white font-semibold text-sm transition-colors">
+          Generate Student Pass & Enter
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== DIGITAL QR STUDENT PASS MODAL ==================== -->
+  <div id="pass-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-ink/40 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl border border-borderline max-w-sm w-full p-6 shadow-xl relative text-center">
+      <button onclick="closePassModal()" class="absolute top-4 right-4 w-8 h-8 rounded-lg bg-alabaster text-muted hover:text-forest flex items-center justify-center">✕</button>
+      <span class="inline-block text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-mint text-forest mb-2">Verified Rural Student Pass</span>
+      <h3 id="pass-modal-name" class="font-heading font-bold text-xl text-ink">Ananya Sharma</h3>
+      <p id="pass-modal-route" class="text-xs text-muted mt-1">Rampur Village → Govt. Polytechnic College</p>
+
+      <!-- Clean SVG QR Code Representation -->
+      <div class="my-5 p-4 rounded-2xl bg-alabaster border border-borderline inline-block">
+        <svg width="140" height="140" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="100" rx="8" fill="#FFFFFF"/>
+          <rect x="10" y="10" width="26" height="26" rx="3" stroke="#1B4332" stroke-width="5"/>
+          <rect x="18" y="18" width="10" height="10" fill="#1B4332"/>
+          <rect x="64" y="10" width="26" height="26" rx="3" stroke="#1B4332" stroke-width="5"/>
+          <rect x="72" y="18" width="10" height="10" fill="#1B4332"/>
+          <rect x="10" y="64" width="26" height="26" rx="3" stroke="#1B4332" stroke-width="5"/>
+          <rect x="18" y="72" width="10" height="10" fill="#1B4332"/>
+          <rect x="44" y="14" width="8" height="8" fill="#2D6A4F"/>
+          <rect x="44" y="30" width="12" height="8" fill="#1B4332"/>
+          <rect x="14" y="44" width="14" height="8" fill="#1B4332"/>
+          <rect x="36" y="44" width="10" height="10" fill="#D97706"/>
+          <rect x="54" y="44" width="14" height="8" fill="#1B4332"/>
+          <rect x="76" y="44" width="12" height="12" fill="#2D6A4F"/>
+          <rect x="44" y="62" width="10" height="14" fill="#1B4332"/>
+          <rect x="62" y="66" width="14" height="8" fill="#2D6A4F"/>
+          <rect x="64" y="80" width="22" height="8" fill="#1B4332"/>
+        </svg>
+      </div>
+
+      <p class="text-xs font-mono font-bold text-forest">PASS ID: GG-2026-884</p>
+      <p class="text-[11px] text-muted mt-1">Show this digital pass when boarding State Buses or Verified Shared Vans.</p>
+    </div>
+  </div>
+
+  <!-- ==================== EMERGENCY SOS CONFIRMATION MODAL ==================== -->
+  <div id="sos-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-red-950/50 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl border-2 border-red-600 max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center gap-3 text-red-600 mb-3">
+        <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center font-bold text-lg">!</div>
+        <div>
+          <h3 class="font-heading font-extrabold text-lg text-ink">Emergency SOS Broadcast Active</h3>
+          <p class="text-xs text-red-600 font-semibold">Live GPS Coordinates Sent to Campus Security & Admin</p>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-red-50 border border-red-200 text-xs space-y-1.5 mb-5">
+        <p><strong>Student:</strong> <span id="sos-student-name">Ananya Sharma (Pass #GG-2026-884)</span></p>
+        <p><strong>Nearest Vehicle:</strong> Bus MH-14-G-402 (Rampur – Polytechnic Route)</p>
+        <p><strong>GPS Coordinates:</strong> 18.5642° N, 73.7769° E (Near Khedi Crossroad)</p>
+        <p><strong>Dispatched To:</strong> Govt. Polytechnic Proctor Desk & District Control Room</p>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <button onclick="closeSosModal()" class="px-4 py-2 rounded-xl bg-ink text-white text-xs font-semibold hover:bg-forest">
+          Acknowledge & Return
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== APPLICATION LOGIC & REAL-TIME STATE ==================== -->
+  <script>
+    // ------------------------------------------------------------------
+    // 1. INITIAL APPLICATION STATE (Shared across Landing, Student, Driver, Admin)
+    // ------------------------------------------------------------------
+    const DEFAULT_STATE = {
+      currentUser: {
+        name: 'Ananya Sharma',
+        role: 'student',
+        village: 'Rampur',
+        college: 'Govt. Polytechnic College',
+        passId: 'GG-2026-884'
+      },
+      routes: [
+        {
+          id: 'BUS-101',
+          code: 'MH-14-G-402',
+          type: 'Govt. Bus',
+          name: 'Rampur – Polytechnic Express',
+          origin: 'Rampur',
+          destination: 'Govt. Polytechnic College',
+          shift: 'Morning',
+          departure: '07:45 AM',
+          etaMins: 6,
+          fare: 10,
+          totalSeats: 45,
+          occupiedSeats: 34,
+          driver: 'Rameshwar Patil',
+          verified: true,
+          status: 'On Time',
+          gpsActive: true,
+          coords: [18.5585, 73.7680],
+          nextStop: 'Khedi Crossroad',
+          stops: [
+            { name: 'Rampur Bus Stand', time: '07:45 AM', passed: true },
+            { name: 'Khedi Crossroad', time: '07:58 AM', passed: false },
+            { name: 'Bhosari Rural Phata', time: '08:10 AM', passed: false },
+            { name: 'Govt. Polytechnic Gate', time: '08:22 AM', passed: false }
+          ]
+        },
+        {
+          id: 'BUS-102',
+          code: 'MH-14-G-518',
+          type: 'Govt. Bus',
+          name: 'Sultanpur – Degree College Shuttle',
+          origin: 'Sultanpur',
+          destination: 'District Degree College',
+          shift: 'Morning',
+          departure: '08:00 AM',
+          etaMins: 12,
+          fare: 12,
+          totalSeats: 45,
+          occupiedSeats: 39,
+          driver: 'Suresh Kulkarni',
+          verified: true,
+          status: 'On Time',
+          gpsActive: true,
+          coords: [18.5740, 73.7890],
+          nextStop: 'Sultanpur Market',
+          stops: [
+            { name: 'Sultanpur Village Square', time: '08:00 AM', passed: true },
+            { name: 'Nandgaon Turn', time: '08:14 AM', passed: false },
+            { name: 'District Degree College', time: '08:30 AM', passed: false }
+          ]
+        },
+        {
+          id: 'VAN-201',
+          code: 'MH-14-TR-89',
+          type: 'Verified Shared Van',
+          name: 'GramMitra Student Pool (8-Seater)',
+          origin: 'Rampur',
+          destination: 'Govt. Polytechnic College',
+          shift: 'Morning',
+          departure: '07:55 AM',
+          etaMins: 4,
+          fare: 20,
+          totalSeats: 8,
+          occupiedSeats: 5,
+          driver: 'Mahesh Jadhav (Verified)',
+          verified: true,
+          status: 'Filling Fast',
+          gpsActive: true,
+          coords: [18.5620, 73.7735],
+          nextStop: 'Rampur Temple Stop',
+          stops: [
+            { name: 'Rampur Temple Stop', time: '07:55 AM', passed: false },
+            { name: 'Govt. Polytechnic Gate', time: '08:18 AM', passed: false }
+          ]
+        },
+        {
+          id: 'BUS-103',
+          code: 'MH-14-G-609',
+          type: 'Govt. Bus',
+          name: 'Khedi – St. Xavier School Special',
+          origin: 'Khedi',
+          destination: "St. Xavier's High School",
+          shift: 'Morning',
+          departure: '07:30 AM',
+          etaMins: 9,
+          fare: 8,
+          totalSeats: 40,
+          occupiedSeats: 28,
+          driver: 'Prakash Shinde',
+          verified: true,
+          status: 'On Time',
+          gpsActive: true,
+          coords: [18.5510, 73.7820],
+          nextStop: 'Khedi Primary School',
+          stops: [
+            { name: 'Khedi Khurd', time: '07:30 AM', passed: true },
+            { name: "St. Xavier's High School", time: '08:05 AM', passed: false }
+          ]
+        },
+        {
+          id: 'AUTO-301',
+          code: 'MH-14-AP-412',
+          type: 'Verified Shared Auto',
+          name: 'Nandgaon Campus Feeder Pool',
+          origin: 'Nandgaon',
+          destination: 'Govt. Polytechnic College',
+          shift: 'Afternoon',
+          departure: '01:15 PM',
+          etaMins: 15,
+          fare: 15,
+          totalSeats: 6,
+          occupiedSeats: 2,
+          driver: 'Vilas Pawar (Verified)',
+          verified: true,
+          status: 'Available',
+          gpsActive: true,
+          coords: [18.5695, 73.7610],
+          nextStop: 'Nandgaon Chowk',
+          stops: [
+            { name: 'Nandgaon Chowk', time: '01:15 PM', passed: false },
+            { name: 'Govt. Polytechnic Gate', time: '01:40 PM', passed: false }
+          ]
+        }
+      ],
+      bookings: [
+        {
+          bookingId: 'BK-9041',
+          routeId: 'BUS-101',
+          code: 'MH-14-G-402',
+          name: 'Rampur – Polytechnic Express',
+          origin: 'Rampur',
+          destination: 'Govt. Polytechnic College',
+          departure: '07:45 AM',
+          seatNo: 'Window #14',
+          status: 'Confirmed'
+        }
+      ],
+      notifications: [
+        {
+          id: 'N-1',
+          type: 'info',
+          title: 'Morning Exam Rush Advisory',
+          message: 'Extra shared vans verified at Rampur & Khedi stops between 7:30 AM – 8:15 AM.',
+          time: '12 mins ago'
+        },
+        {
+          id: 'N-2',
+          type: 'delay',
+          title: 'Bus MH-14-G-518 Minor Delay',
+          message: 'Running 4 mins behind schedule due to fog near Sultanpur bridge.',
+          time: '24 mins ago'
+        }
+      ],
+      complaints: [
+        {
+          id: 'CMP-104',
+          type: 'Complaint',
+          category: 'Bus Overcrowding',
+          route: 'Bus MH-14-G-402 (Rampur)',
+          student: 'Kiran Bhosale (Rampur)',
+          details: 'Heavy student rush on 7:45 AM trip during internal practical exams.',
+          time: '08:10 AM',
+          status: 'Open'
+        }
+      ],
+      activeDriverRouteId: 'BUS-101',
+      reliefShuttleDeployed: false
+    };
+
+    // Load or initialize state from localStorage
+    let appState = JSON.parse(localStorage.getItem('gramgo_state_v1')) || JSON.parse(JSON.stringify(DEFAULT_STATE));
+
+    function saveState() {
+      localStorage.setItem('gramgo_state_v1', JSON.stringify(appState));
+      updateAdminAlertBadge();
+    }
+
+    function resetDemoState() {
+      localStorage.removeItem('gramgo_state_v1');
+      appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+      saveState();
+      refreshAllViews();
+      showToast('Demo data restored to initial state.', 'info');
+    }
+
+    // ------------------------------------------------------------------
+    // 2. NAVIGATION & VIEW ROUTER
+    // ------------------------------------------------------------------
+    let studentMap = null;
+    let busMarkers = {};
+    let gpsInterval = null;
+
+    function navigateTo(viewName) {
+      // Hide all views
+      document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
+      const target = document.getElementById(`view-${viewName}`);
+      if (target) target.classList.remove('hidden');
+
+      // Update desktop nav pills
+      document.querySelectorAll('.nav-pill').forEach(btn => {
+        btn.classList.remove('bg-mint', 'text-forest');
+        btn.classList.add('text-muted');
+      });
+      const activeDesktopBtn = document.getElementById(`nav-${viewName}`);
+      if (activeDesktopBtn) {
+        activeDesktopBtn.classList.add('bg-mint', 'text-forest');
+        activeDesktopBtn.classList.remove('text-muted');
+      }
+
+      // Initialize or resize Leaflet map when Student view opens
+      if (viewName === 'student') {
+        setTimeout(() => {
+          initOrUpdateStudentMap();
+        }, 80);
+      }
+
+      refreshAllViews();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ------------------------------------------------------------------
+    // 3. TOAST NOTIFICATION SYSTEM (Zero alert() calls)
+    // ------------------------------------------------------------------
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+
+      const colors = {
+        success: 'bg-forest text-white border-sage',
+        warning: 'bg-amberwarm text-white border-amber-700',
+        danger: 'bg-red-600 text-white border-red-800',
+        info: 'bg-ink text-white border-gray-700'
+      };
+
+      toast.className = `pointer-events-auto rounded-xl border px-4 py-3 shadow-lg text-xs font-medium flex items-center justify-between gap-3 transition-all duration-300 ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()" class="opacity-80 hover:opacity-100 font-bold">✕</button>
+      `;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        if (toast.parentElement) toast.remove();
+      }, 4200);
+    }
+
+    // ------------------------------------------------------------------
+    // 4. LANDING PAGE ROUTE FINDER & RESULTS
+    // ------------------------------------------------------------------
+    function handleLandingSearch(e) {
+      e.preventDefault();
+      const origin = document.getElementById('search-origin').value;
+      const dest = document.getElementById('search-dest').value;
+      renderLandingResults(origin, dest);
+      document.getElementById('landing-results-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetLandingFilter() {
+      document.getElementById('search-origin').value = 'All';
+      document.getElementById('search-dest').value = 'All';
+      renderLandingResults('All', 'All');
+    }
+
+    function renderLandingResults(originFilter = 'All', destFilter = 'All') {
+      const grid = document.getElementById('landing-results-grid');
+      if (!grid) return;
+
+      let filtered = appState.routes.filter(r => {
+        const matchOrigin = originFilter === 'All' || r.origin === originFilter;
+        const matchDest = destFilter === 'All' || r.destination === destFilter;
+        return matchOrigin && matchDest;
+      });
+
+      // Fallback if strict filter returns 0 so user always sees helpful options
+      if (filtered.length === 0) {
+        filtered = appState.routes;
+      }
+
+      grid.innerHTML = filtered.map(route => {
+        const seatsLeft = Math.max(0, route.totalSeats - route.occupiedSeats);
+        const pct = Math.round((route.occupiedSeats / route.totalSeats) * 100);
+        const isGovt = route.type.includes('Govt');
+
+        return `
+          <div class="bg-white rounded-2xl border border-borderline p-5 flex flex-col justify-between hover:border-sage transition-colors">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-3">
+                <span class="text-[11px] font-bold px-2.5 py-1 rounded-lg ${isGovt ? 'bg-mint text-forest' : 'bg-amberlight text-amberwarm'}">
+                  ${route.type} • ${route.code}
+                </span>
+                <span class="text-xs font-semibold text-sage flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-sage"></span>
+                  ETA ${route.etaMins}m
+                </span>
+              </div>
+
+              <h3 class="font-heading font-bold text-base text-ink">${route.name}</h3>
+              <p class="text-xs text-muted mt-1">${route.origin} → ${route.destination}</p>
+
+              <div class="mt-4 pt-3 border-t border-borderline flex items-center justify-between text-xs">
+                <div>
+                  <span class="text-muted">Departs:</span>
+                  <strong class="text-ink ml-1">${route.departure}</strong>
+                </div>
+                <div>
+                  <span class="text-muted">Student Fare:</span>
+                  <strong class="text-forest text-sm ml-1">₹${route.fare}</strong>
+                </div>
+              </div>
+
+              <!-- Seat Availability Meter -->
+              <div class="mt-3">
+                <div class="flex justify-between text-[11px] font-semibold mb-1">
+                  <span class="${seatsLeft <= 4 ? 'text-terracotta' : 'text-forest'}">${seatsLeft} seats available</span>
+                  <span class="text-muted">${route.occupiedSeats}/${route.totalSeats} filled</span>
+                </div>
+                <div class="w-full h-2 bg-alabaster rounded-full overflow-hidden border border-borderline">
+                  <div class="h-full ${seatsLeft <= 4 ? 'bg-amberwarm' : 'bg-forest'}" style="width: ${pct}%"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-5 flex items-center gap-2">
+              <button onclick="bookSeat('${route.id}')" ${seatsLeft === 0 ? 'disabled' : ''} class="flex-1 py-2.5 rounded-xl bg-forest hover:bg-sage disabled:bg-gray-300 text-white font-semibold text-xs transition-colors">
+                ${seatsLeft === 0 ? 'Bus Full' : 'Book Seat Now'}
+              </button>
+              <button onclick="navigateTo('student')" class="px-3 py-2.5 rounded-xl bg-alabaster hover:bg-mint text-forest border border-borderline text-xs font-semibold">
+                Track GPS
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ------------------------------------------------------------------
+    // 5. SEAT BOOKING & STUDENT DASHBOARD LOGIC
+    // ------------------------------------------------------------------
+    function bookSeat(routeId) {
+      const route = appState.routes.find(r => r.id === routeId);
+      if (!route) return;
+
+      if (route.occupiedSeats >= route.totalSeats) {
+        showToast('Sorry, this vehicle is currently at full capacity.', 'warning');
+        return;
+      }
+
+      // Check duplicate active booking on same route
+      const existing = appState.bookings.find(b => b.routeId === routeId);
+      if (existing) {
+        showToast(`You already hold Seat ${existing.seatNo} on ${route.code}.`, 'info');
+        navigateTo('student');
+        return;
+      }
+
+      route.occupiedSeats += 1;
+      const randomSeat = route.type.includes('Govt')
+        ? `Seat #${route.occupiedSeats}`
+        : `Pool #${route.occupiedSeats}`;
+
+      appState.bookings.unshift({
+        bookingId: 'BK-' + Math.floor(1000 + Math.random() * 9000),
+        routeId: route.id,
+        code: route.code,
+        name: route.name,
+        origin: route.origin,
+        destination: route.destination,
+        departure: route.departure,
+        seatNo: randomSeat,
+        status: 'Confirmed'
+      });
+
+      saveState();
+      refreshAllViews();
+      showToast(`Seat booked on ${route.code} (${randomSeat})! Added to your Student Pass.`, 'success');
+      navigateTo('student');
+    }
+
+    function cancelBooking(bookingId) {
+      const idx = appState.bookings.findIndex(b => b.bookingId === bookingId);
+      if (idx === -1) return;
+
+      const booking = appState.bookings[idx];
+      const route = appState.routes.find(r => r.id === booking.routeId);
+      if (route && route.occupiedSeats > 0) {
+        route.occupiedSeats -= 1;
+      }
+
+      appState.bookings.splice(idx, 1);
+      saveState();
+      refreshAllViews();
+      showToast(`Booking ${bookingId} cancelled and seat released.`, 'info');
+    }
+
+    function renderStudentDashboard() {
+      // User Header Info
+      document.getElementById('student-welcome-name').textContent = `Welcome, ${appState.currentUser.name}`;
+      document.getElementById('student-meta-info').textContent =
+        `Route: ${appState.currentUser.village} Village → ${appState.currentUser.college} • Concession Active`;
+
+      // Transport list inside student portal
+      const filterVillage = document.getElementById('student-filter-village').value;
+      const listEl = document.getElementById('student-transport-list');
+      const filteredRoutes = filterVillage === 'All'
+        ? appState.routes
+        : appState.routes.filter(r => r.origin === filterVillage);
+
+      listEl.innerHTML = filteredRoutes.map(r => {
+        const seatsLeft = Math.max(0, r.totalSeats - r.occupiedSeats);
+        const isGovt = r.type.includes('Govt');
+        return `
+          <div class="p-4 rounded-xl bg-alabaster border border-borderline flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded ${isGovt ? 'bg-mint text-forest' : 'bg-amberlight text-amberwarm'}">
+                  ${r.type}
+                </span>
+                <span class="text-xs font-bold text-forest">₹${r.fare}</span>
+              </div>
+              <h4 class="font-heading font-bold text-sm text-ink">${r.code} • ${r.origin} → ${r.destination}</h4>
+              <p class="text-[11px] text-muted mt-1">Departs ${r.departure} • Driver: ${r.driver}</p>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-borderline flex items-center justify-between">
+              <span class="text-xs font-semibold ${seatsLeft <= 3 ? 'text-terracotta' : 'text-sage'}">
+                ${seatsLeft} / ${r.totalSeats} seats left
+              </span>
+              <button onclick="bookSeat('${r.id}')" ${seatsLeft === 0 ? 'disabled' : ''} class="px-3 py-1.5 rounded-lg bg-forest hover:bg-sage disabled:bg-gray-300 text-white text-xs font-semibold">
+                ${seatsLeft === 0 ? 'Full' : 'Reserve'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // My Booked Seats
+      const bookingsEl = document.getElementById('student-bookings-list');
+      document.getElementById('my-bookings-count').textContent = `${appState.bookings.length} Active`;
+
+      if (appState.bookings.length === 0) {
+        bookingsEl.innerHTML = `<p class="text-xs text-muted py-3">No active seat reservations. Book a bus or shared van from the list.</p>`;
+      } else {
+        bookingsEl.innerHTML = appState.bookings.map(b => `
+          <div class="p-3.5 rounded-xl bg-mint/50 border border-borderline">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold text-forest">${b.code} • ${b.seatNo}</span>
+              <span class="text-[10px] font-mono text-muted">${b.bookingId}</span>
+            </div>
+            <p class="text-xs font-semibold text-ink mt-1">${b.origin} → ${b.destination}</p>
+            <div class="mt-2 flex items-center justify-between text-[11px]">
+              <span class="text-sage font-medium">Departs ${b.departure}</span>
+              <button onclick="cancelBooking('${b.bookingId}')" class="text-terracotta hover:underline font-semibold">Cancel</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Notifications Feed
+      const notifEl = document.getElementById('student-notifications-list');
+      notifEl.innerHTML = appState.notifications.map(n => `
+        <div class="p-3 rounded-xl border ${n.type === 'delay' ? 'bg-amberlight/50 border-amber-200' : 'bg-alabaster border-borderline'}">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-bold text-ink">${n.title}</span>
+            <span class="text-[10px] text-muted shrink-0">${n.time}</span>
+          </div>
+          <p class="text-[11px] text-muted mt-1 leading-relaxed">${n.message}</p>
+        </div>
+      `).join('');
+    }
+
+    function submitStudentComplaint(e) {
+      e.preventDefault();
+      const category = document.getElementById('complaint-category').value;
+      const route = document.getElementById('complaint-route').value;
+      const details = document.getElementById('complaint-desc').value;
+
+      appState.complaints.unshift({
+        id: 'CMP-' + Math.floor(100 + Math.random() * 900),
+        type: 'Complaint',
+        category,
+        route,
+        student: `${appState.currentUser.name} (${appState.currentUser.village})`,
+        details,
+        time: 'Just now',
+        status: 'Open'
+      });
+
+      document.getElementById('student-complaint-form').reset();
+      saveState();
+      refreshAllViews();
+      showToast('Report submitted to District Transport Admin.', 'success');
+    }
+
+    function triggerEmergencySOS() {
+      const sosRecord = {
+        id: 'SOS-' + Math.floor(100 + Math.random() * 900),
+        type: 'SOS EMERGENCY',
+        category: 'Live Distress Signal',
+        route: 'Bus MH-14-G-402 (GPS: 18.5642° N, 73.7769° E)',
+        student: `${appState.currentUser.name} (${appState.currentUser.passId})`,
+        details: 'Emergency SOS triggered by student. Campus security & patrol alerted.',
+        time: 'LIVE NOW',
+        status: 'Open'
+      };
+
+      appState.complaints.unshift(sosRecord);
+      saveState();
+      refreshAllViews();
+
+      document.getElementById('sos-student-name').textContent = `${appState.currentUser.name} (Pass #${appState.currentUser.passId})`;
+      const modal = document.getElementById('sos-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeSosModal() {
+      const modal = document.getElementById('sos-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function openPassModal() {
+      document.getElementById('pass-modal-name').textContent = appState.currentUser.name;
+      document.getElementById('pass-modal-route').textContent = `${appState.currentUser.village} Village → ${appState.currentUser.college}`;
+      const modal = document.getElementById('pass-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closePassModal() {
+      const modal = document.getElementById('pass-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // ------------------------------------------------------------------
+    // 6. LEAFLET / OPENSTREETMAP LIVE GPS TRACKING SIMULATION
+    // ------------------------------------------------------------------
+    function initOrUpdateStudentMap() {
+      const mapContainer = document.getElementById('student-map');
+      if (!mapContainer) return;
+
+      if (!studentMap) {
+        studentMap = L.map('student-map').setView([18.5630, 73.7760], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 18,
+          attribution: '&copy; OpenStreetMap contributors • GRAMGO GPS'
+        }).addTo(studentMap);
+
+        // Draw rural corridor polyline connecting villages to campus
+        const corridorCoords = [
+          [18.5510, 73.7820], // Khedi
+          [18.5585, 73.7680], // Rampur
+          [18.5645, 73.7755], // Crossroad
+          [18.5715, 73.7850]  // Govt. Polytechnic Campus
+        ];
+        L.polyline(corridorCoords, {
+          color: '#1B4332',
+          weight: 4,
+          opacity: 0.75,
+          dashArray: '8, 8'
+        }).addTo(studentMap);
+
+        // Add Campus Destination Pin
+        const campusIcon = L.divIcon({
+          className: '',
+          html: `<div style="background:#1B4332;color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.2);white-space:nowrap;">🎓 Govt. Polytechnic</div>`,
+          iconSize: [130, 28],
+          iconAnchor: [65, 14]
+        });
+        L.marker([18.5715, 73.7850], { icon: campusIcon }).addTo(studentMap);
+
+        // Start simulated GPS movement loop every 3.5 seconds
+        if (!gpsInterval) {
+          gpsInterval = setInterval(simulateGpsMovement, 3500);
+        }
+      } else {
+        studentMap.invalidateSize();
+      }
+
+      syncBusMarkersOnMap();
+    }
+
+    function syncBusMarkersOnMap() {
+      if (!studentMap) return;
+
+      appState.routes.forEach(route => {
+        if (!route.gpsActive) {
+          if (busMarkers[route.id]) {
+            studentMap.removeLayer(busMarkers[route.id]);
+            delete busMarkers[route.id];
+          }
+          return;
+        }
+
+        const isGovt = route.type.includes('Govt');
+        const badgeBg = isGovt ? '#2D6A4F' : '#D97706';
+        const seatsLeft = Math.max(0, route.totalSeats - route.occupiedSeats);
+
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="background:${badgeBg};color:#fff;padding:3px 7px;border-radius:999px;font-size:10px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.25);white-space:nowrap;">🚌 ${route.code.split('-').pop()} (${seatsLeft} left)</div>`,
+          iconSize: [96, 24],
+          iconAnchor: [48, 12]
+        });
+
+        const popupHtml = `
+          <div style="font-family:Inter,sans-serif;font-size:12px;">
+            <strong style="color:#1B4332;">${route.code}</strong><br/>
+            <span>${route.name}</span><br/>
+            <span style="color:#52635B;">Seats Available: <b>${seatsLeft}/${route.totalSeats}</b></span><br/>
+            <span style="color:#2D6A4F;">ETA: ${route.etaMins} mins</span>
+          </div>
+        `;
+
+        if (busMarkers[route.id]) {
+          busMarkers[route.id].setLatLng(route.coords);
+          busMarkers[route.id].setIcon(icon);
+          busMarkers[route.id].setPopupContent(popupHtml);
+        } else {
+          const marker = L.marker(route.coords, { icon })
+            .addTo(studentMap)
+            .bindPopup(popupHtml);
+
+          marker.on('click', () => {
+            document.getElementById('telemetry-bus-label').textContent = `${route.code} (${route.name})`;
+            document.getElementById('telemetry-next-stop').textContent = route.nextStop;
+            document.getElementById('telemetry-eta').textContent = `ETA: ${route.etaMins} mins`;
+          });
+
+          busMarkers[route.id] = marker;
+        }
+      });
+    }
+
+    function simulateGpsMovement() {
+      appState.routes.forEach(r => {
+        if (!r.gpsActive) return;
+        // Subtle organic movement toward campus northeast
+        const deltaLat = (Math.random() - 0.35) * 0.0008;
+        const deltaLng = (Math.random() - 0.35) * 0.0008;
+        r.coords = [
+          Number((r.coords[0] + deltaLat).toFixed(5)),
+          Number((r.coords[1] + deltaLng).toFixed(5))
+        ];
+      });
+      syncBusMarkersOnMap();
+    }
+
+    function centerStudentMap() {
+      if (studentMap) {
+        studentMap.setView([18.5630, 73.7760], 13);
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // 7. DRIVER CONSOLE LOGIC
+    // ------------------------------------------------------------------
+    function switchDriverVehicle(routeId) {
+      appState.activeDriverRouteId = routeId;
+      saveState();
+      renderDriverDashboard();
+    }
+
+    function renderDriverDashboard() {
+      const route = appState.routes.find(r => r.id === appState.activeDriverRouteId) || appState.routes[0];
+      if (!route) return;
+
+      document.getElementById('driver-vehicle-selector').value = route.id;
+      document.getElementById('driver-name-heading').textContent = `${route.driver} • ${route.code}`;
+
+      // Trip & GPS labels
+      document.getElementById('driver-trip-label').textContent = route.status === 'Trip Ended' ? 'Trip Completed' : 'Active En-Route';
+      document.getElementById('btn-toggle-trip').textContent = route.status === 'Trip Ended' ? 'Start New Trip' : 'End Trip';
+      document.getElementById('driver-trip-status-badge').textContent = route.status === 'Trip Ended' ? 'OFF DUTY' : 'ON DUTY • TRIP ACTIVE';
+
+      document.getElementById('driver-gps-label').textContent = route.gpsActive ? 'Broadcasting Live' : 'GPS Paused';
+      document.getElementById('btn-toggle-gps').textContent = route.gpsActive ? 'Pause GPS' : 'Resume GPS';
+
+      // Occupancy meter
+      const pct = Math.min(100, Math.round((route.occupiedSeats / route.totalSeats) * 100));
+      const left = Math.max(0, route.totalSeats - route.occupiedSeats);
+      document.getElementById('driver-seat-fraction').textContent = `${route.occupiedSeats} / ${route.totalSeats}`;
+      document.getElementById('driver-seat-bar').style.width = `${pct}%`;
+      document.getElementById('driver-seats-remaining-text').textContent = `${left} seats open for students`;
+
+      // Village stop checklist
+      const stopsEl = document.getElementById('driver-stops-checklist');
+      stopsEl.innerHTML = route.stops.map((s, idx) => `
+        <button onclick="toggleDriverStop(${idx})" class="w-full text-left p-3.5 rounded-xl border transition-colors flex items-center justify-between ${s.passed ? 'bg-mint/60 border-sage text-forest' : 'bg-alabaster border-borderline text-ink hover:border-sage'}">
+          <div class="flex items-center gap-3">
+            <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${s.passed ? 'bg-forest text-white' : 'bg-white border border-borderline text-muted'}">
+              ${s.passed ? '✓' : idx + 1}
+            </span>
+            <div>
+              <p class="text-xs font-bold">${s.name}</p>
+              <p class="text-[11px] text-muted">Scheduled: ${s.time}</p>
+            </div>
+          </div>
+          <span class="text-[11px] font-semibold ${s.passed ? 'text-sage' : 'text-muted'}">
+            ${s.passed ? 'Departed' : 'Mark Passed'}
+          </span>
+        </button>
+      `).join('');
+    }
+
+    function adjustDriverOccupancy(delta) {
+      const route = appState.routes.find(r => r.id === appState.activeDriverRouteId);
+      if (!route) return;
+      route.occupiedSeats = Math.max(0, Math.min(route.totalSeats, route.occupiedSeats + delta));
+      saveState();
+      refreshAllViews();
+      showToast(`Updated ${route.code} occupancy to ${route.occupiedSeats}/${route.totalSeats} seats.`, 'success');
+    }
+
+    function toggleDriverTrip() {
+      const route = appState.routes.find(r => r.id === appState.activeDriverRouteId);
+      if (!route) return;
+      route.status = route.status === 'Trip Ended' ? 'On Time' : 'Trip Ended';
+      saveState();
+      refreshAllViews();
+      showToast(`${route.code} status updated: ${route.status}`, 'info');
+    }
+
+    function toggleDriverGPS() {
+      const route = appState.routes.find(r => r.id === appState.activeDriverRouteId);
+      if (!route) return;
+      route.gpsActive = !route.gpsActive;
+      saveState();
+      refreshAllViews();
+      showToast(`GPS Telemetry ${route.gpsActive ? 'enabled' : 'paused'} for ${route.code}.`, 'info');
+    }
+
+    function toggleDriverStop(stopIdx) {
+      const route = appState.routes.find(r => r.id === appState.activeDriverRouteId);
+      if (!route || !route.stops[stopIdx]) return;
+      route.stops[stopIdx].passed = !route.stops[stopIdx].passed;
+
+      const nextUnpassed = route.stops.find(s => !s.passed);
+      route.nextStop = nextUnpassed ? nextUnpassed.name : route.destination;
+
+      saveState();
+      refreshAllViews();
+      showToast(`Stop "${route.stops[stopIdx].name}" updated.`, 'success');
+    }
+
+    function broadcastDriverDelay(e) {
+      e.preventDefault();
+      const route = appState.routes.find(r => r.id === appState.activeDriverRouteId);
+      const reason = document.getElementById('driver-delay-reason').value;
+
+      appState.notifications.unshift({
+        id: 'N-' + Date.now(),
+        type: 'delay',
+        title: `Alert: ${route.code} (${route.origin})`,
+        message: reason,
+        time: 'Just now'
+      });
+
+      route.status = 'Delayed';
+      saveState();
+      refreshAllViews();
+      showToast('Live delay alert pushed to waiting students & Admin.', 'warning');
+    }
+
+    // ------------------------------------------------------------------
+    // 8. ADMIN DASHBOARD LOGIC (OPTIMIZATION, FLEET, SOS RESOLUTION)
+    // ------------------------------------------------------------------
+    function deployReliefShuttle() {
+      if (appState.reliefShuttleDeployed) {
+        showToast('Relief Shuttle MH-14-G-999 is already active on the Rampur corridor.', 'info');
+        return;
+      }
+
+      appState.reliefShuttleDeployed = true;
+      appState.routes.unshift({
+        id: 'BUS-RELIEF',
+        code: 'MH-14-G-999',
+        type: 'Govt. Relief Shuttle',
+        name: 'Rampur Extra Exam Relief Bus',
+        origin: 'Rampur',
+        destination: 'Govt. Polytechnic College',
+        shift: 'Morning',
+        departure: '08:00 AM',
+        etaMins: 5,
+        fare: 10,
+        totalSeats: 40,
+        occupiedSeats: 6,
+        driver: 'Dattatray More (Relief)',
+        verified: true,
+        status: 'On Time',
+        gpsActive: true,
+        coords: [18.5565, 73.7650],
+        nextStop: 'Rampur Bus Stand',
+        stops: [
+          { name: 'Rampur Bus Stand', time: '08:00 AM', passed: false },
+          { name: 'Govt. Polytechnic Gate', time: '08:28 AM', passed: false }
+        ]
+      });
+
+      appState.notifications.unshift({
+        id: 'N-RELIEF',
+        type: 'info',
+        title: 'Extra Relief Bus Deployed (MH-14-G-999)',
+        message: 'Additional 40-seater shuttle dispatched for Rampur → Govt. Polytechnic morning surge.',
+        time: 'Just now'
+      });
+
+      saveState();
+      refreshAllViews();
+      showToast('Extra Relief Shuttle MH-14-G-999 deployed to Rampur corridor!', 'success');
+    }
+
+    function resolveComplaint(complaintId) {
+      const item = appState.complaints.find(c => c.id === complaintId);
+      if (item) {
+        item.status = 'Resolved';
+        saveState();
+        refreshAllViews();
+        showToast(`Ticket ${complaintId} marked as resolved.`, 'success');
+      }
+    }
+
+    function updateAdminAlertBadge() {
+      const openCount = appState.complaints.filter(c => c.status === 'Open').length;
+      const badge = document.getElementById('admin-alert-badge');
+      if (badge) {
+        badge.textContent = openCount;
+        if (openCount > 0) badge.classList.remove('hidden');
+        else badge.classList.add('hidden');
+      }
+    }
+
+    function renderAdminDashboard() {
+      // KPIs
+      const totalOccupied = appState.routes.reduce((acc, r) => acc + r.occupiedSeats, 0);
+      const totalCap = appState.routes.reduce((acc, r) => acc + r.totalSeats, 0);
+      const utilPct = totalCap ? Math.round((totalOccupied / totalCap) * 100) : 0;
+      const openAlerts = appState.complaints.filter(c => c.status === 'Open').length;
+
+      document.getElementById('admin-kpi-fleet').textContent = `${appState.routes.length} Vehicles`;
+      document.getElementById('admin-kpi-students').textContent = `${totalOccupied + 42}`;
+      document.getElementById('admin-kpi-utilization').textContent = `${utilPct}%`;
+      document.getElementById('admin-kpi-alerts').textContent = `${openAlerts}`;
+      document.getElementById('admin-log-badge').textContent = `${openAlerts} Open`;
+
+      if (appState.reliefShuttleDeployed) {
+        const box = document.getElementById('optimization-recommendation-box');
+        if (box) {
+          box.className = 'mt-6 p-4 rounded-xl bg-mint border border-sage flex items-center justify-between gap-3';
+          box.innerHTML = `
+            <div class="text-xs">
+              <p class="font-bold text-forest">✓ Optimization Applied: Relief Shuttle MH-14-G-999 Active</p>
+              <p class="text-muted mt-0.5">Rampur corridor capacity increased by +40 seats. Load balanced to 74%.</p>
+            </div>
+            <span class="px-3 py-1 rounded-lg bg-forest text-white text-[11px] font-bold">Deployed</span>
+          `;
+        }
+      }
+
+      // Complaints & SOS Log
+      const logEl = document.getElementById('admin-complaints-list');
+      logEl.innerHTML = appState.complaints.map(c => {
+        const isSos = c.type === 'SOS EMERGENCY';
+        const isOpen = c.status === 'Open';
+        return `
+          <div class="p-3.5 rounded-xl border ${isSos && isOpen ? 'bg-red-50 border-red-300' : 'bg-alabaster border-borderline'}">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded ${isSos ? 'bg-red-600 text-white' : 'bg-amberlight text-amberwarm'}">
+                ${c.type} • ${c.id}
+              </span>
+              <span class="text-[10px] text-muted">${c.time}</span>
+            </div>
+            <p class="text-xs font-bold text-ink mt-1.5">${c.category} — ${c.route}</p>
+            <p class="text-[11px] text-muted mt-0.5">${c.details}</p>
+            <div class="mt-2.5 flex items-center justify-between text-[11px]">
+              <span class="text-ink font-medium">By: ${c.student}</span>
+              ${isOpen
+                ? `<button onclick="resolveComplaint('${c.id}')" class="px-2.5 py-1 rounded-lg bg-forest text-white font-semibold hover:bg-sage">Mark Resolved</button>`
+                : `<span class="text-sage font-bold">✓ Resolved</span>`
+              }
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Fleet Roster Table
+      const tbody = document.getElementById('admin-fleet-table-body');
+      tbody.innerHTML = appState.routes.map(r => {
+        const isGovt = r.type.includes('Govt');
+        return `
+          <tr class="hover:bg-alabaster/70">
+            <td class="py-3.5 px-4">
+              <div class="font-bold text-ink">${r.code}</div>
+              <div class="text-[11px] text-muted">${r.type}</div>
+            </td>
+            <td class="py-3.5 px-4 font-medium text-ink">${r.origin} → ${r.destination}</td>
+            <td class="py-3.5 px-4 text-muted">${r.driver}</td>
+            <td class="py-3.5 px-4">
+              <span class="font-bold text-forest">${r.occupiedSeats}</span> / ${r.totalSeats} seats
+            </td>
+            <td class="py-3.5 px-4">
+              <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold ${isGovt ? 'bg-mint text-forest' : 'bg-amberlight text-amberwarm'}">
+                ${r.status}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ------------------------------------------------------------------
+    // 9. AUTHENTICATION MODAL & DEMO ROLE SWITCHER
+    // ------------------------------------------------------------------
+    function openAuthModal(tab = 'login') {
+      switchAuthTab(tab);
+      const modal = document.getElementById('auth-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function switchAuthTab(tab) {
+      const loginForm = document.getElementById('form-login');
+      const regForm = document.getElementById('form-register');
+      const tabLogin = document.getElementById('tab-login');
+      const tabReg = document.getElementById('tab-register');
+
+      if (tab === 'login') {
+        loginForm.classList.remove('hidden');
+        loginForm.classList.add('flex');
+        regForm.classList.add('hidden');
+        regForm.classList.remove('flex');
+        tabLogin.className = 'py-2 rounded-lg text-xs font-bold bg-white text-forest shadow-2xs';
+        tabReg.className = 'py-2 rounded-lg text-xs font-bold text-muted hover:text-forest';
+      } else {
+        regForm.classList.remove('hidden');
+        regForm.classList.add('flex');
+        loginForm.classList.add('hidden');
+        loginForm.classList.remove('flex');
+        tabReg.className = 'py-2 rounded-lg text-xs font-bold bg-white text-forest shadow-2xs';
+        tabLogin.className = 'py-2 rounded-lg text-xs font-bold text-muted hover:text-forest';
+      }
+    }
+
+    function prefillLoginDemo() {
+      const role = document.getElementById('login-role').value;
+      const idInput = document.getElementById('login-id');
+      if (role === 'student') idInput.value = 'STU-2026-884';
+      if (role === 'driver') idInput.value = 'DRV-MH14-402';
+      if (role === 'admin') idInput.value = 'ADM-DIST-01';
+    }
+
+    function handleAuthLogin(e) {
+      e.preventDefault();
+      const role = document.getElementById('login-role').value;
+      quickDemoLogin(role);
+      closeAuthModal();
+    }
+
+    function handleStudentRegister(e) {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value.trim();
+      const village = document.getElementById('reg-village').value;
+      const college = document.getElementById('reg-college').value;
+      const roll = document.getElementById('reg-roll').value.trim();
+
+      appState.currentUser = {
+        name,
+        role: 'student',
+        village,
+        college,
+        passId: roll || 'GG-2026-NEW'
+      };
+
+      saveState();
+      updateHeaderSessionPill();
+      closeAuthModal();
+      navigateTo('student');
+      showToast(`Student Pass generated for ${name}!`, 'success');
+    }
+
+    function quickDemoLogin(role) {
+      if (role === 'student') {
+        appState.currentUser = {
+          name: 'Ananya Sharma',
+          role: 'student',
+          village: 'Rampur',
+          college: 'Govt. Polytechnic College',
+          passId: 'GG-2026-884'
+        };
+        updateHeaderSessionPill();
+        navigateTo('student');
+        showToast('Signed in as Student (Ananya Sharma).', 'success');
+      } else if (role === 'driver') {
+        appState.currentUser = {
+          name: 'Rameshwar Patil',
+          role: 'driver',
+          village: 'Rampur Depot',
+          college: 'Fleet MH-14-G-402',
+          passId: 'DRV-402'
+        };
+        updateHeaderSessionPill();
+        navigateTo('driver');
+        showToast('Signed in to Driver Console (Bus MH-14-G-402).', 'success');
+      } else if (role === 'admin') {
+        appState.currentUser = {
+          name: 'District Transport Officer',
+          role: 'admin',
+          village: 'District HQ',
+          college: 'Control Room',
+          passId: 'ADM-01'
+        };
+        updateHeaderSessionPill();
+        navigateTo('admin');
+        showToast('Signed in to Transport Admin Command.', 'success');
+      }
+    }
+
+    function updateHeaderSessionPill() {
+      const pill = document.getElementById('active-user-pill');
+      pill.classList.remove('hidden');
+      pill.classList.add('flex');
+      document.getElementById('active-user-name').textContent = appState.currentUser.name;
+      document.getElementById('active-user-role').textContent = appState.currentUser.role;
+    }
+
+    // ------------------------------------------------------------------
+    // 10. INITIALIZE ON PAGE LOAD
+    // ------------------------------------------------------------------
+    function refreshAllViews() {
+      renderLandingResults(
+        document.getElementById('search-origin')?.value || 'All',
+        document.getElementById('search-dest')?.value || 'All'
+      );
+      renderStudentDashboard();
+      renderDriverDashboard();
+      renderAdminDashboard();
+      syncBusMarkersOnMap();
+      updateAdminAlertBadge();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Set today's date in route finder
+      const dateInput = document.getElementById('search-date');
+      if (dateInput) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+      }
+      updateHeaderSessionPill();
+      refreshAllViews();
+    });
+  </script>
+</body>
+</html>
